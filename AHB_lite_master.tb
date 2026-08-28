@@ -1,0 +1,392 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 08/27/2026 11:52:31 PM
+// Design Name: 
+// Module Name: AHB_lite_tb
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module AHB_lite_tb();
+
+  
+
+    reg HCLK;
+    reg HRESETn;
+
+    initial begin
+        HCLK = 1'b0;
+        forever #5 HCLK = ~HCLK;
+    end
+
+
+
+
+    reg        start;
+    reg        write;
+    reg [31:0] addr;
+    reg [31:0] write_data;
+
+    reg [3:0]  beat_length;
+    reg        wrap_en;
+
+
+
+    wire [31:0] HADDR;
+    wire        HWRITE;
+    wire [2:0]  HSIZE;
+    wire [2:0]  HBURST;
+    wire [1:0]  HTRANS;
+    wire [31:0] HWDATA;
+
+    wire        HREADY;
+    wire [1:0]  HRESP;
+    wire [31:0] HRDATA;
+
+
+
+    wire        busy;
+    wire        done;
+    wire        error;
+
+    wire [31:0] read_data;
+
+
+   
+
+    AHB_lite DUT (
+
+        .HCLK       (HCLK),
+        .HRESETn    (HRESETn),
+
+        .start      (start),
+        .write      (write),
+        .addr       (addr),
+        .write_data (write_data),
+
+        .beat_length(beat_length),
+        .wrap_en    (wrap_en),
+
+        .HREADY     (HREADY),
+        .HRESP      (HRESP),
+        .HRDATA     (HRDATA),
+
+        .HADDR      (HADDR),
+        .HWRITE     (HWRITE),
+        .HSIZE      (HSIZE),
+        .HBURST     (HBURST),
+        .HTRANS     (HTRANS),
+        .HWDATA     (HWDATA),
+
+        .busy       (busy),
+        .done       (done),
+        .error      (error),
+        .read_data  (read_data)
+    );
+
+
+ 
+
+    reg [31:0] memory [0:255];
+
+    reg [31:0] slave_addr;
+    reg        slave_write;
+    reg        slave_valid;
+
+    integer i;
+
+
+    // Always ready
+    assign HREADY = 1'b1;
+
+    // Always OKAY
+    assign HRESP = 2'b00;
+
+
+    // Read data
+    assign HRDATA = memory[slave_addr[9:2]];
+
+
+    always @(posedge HCLK or negedge HRESETn) begin
+
+        if (!HRESETn) begin
+
+            slave_addr  <= 32'b0;
+            slave_write <= 1'b0;
+            slave_valid <= 1'b0;
+
+            for (i = 0; i < 256; i = i + 1)
+                memory[i] <= 32'b0;
+
+        end
+
+        else begin
+
+            // Capture valid AHB transfer
+            if (HTRANS[1]) begin
+
+                slave_addr  <= HADDR;
+                slave_write <= HWRITE;
+                slave_valid <= 1'b1;
+
+            end
+
+            else begin
+
+                slave_valid <= 1'b0;
+
+            end
+
+
+            // Write data phase
+            if (slave_valid && slave_write) begin
+
+                memory[slave_addr[9:2]] <= HWDATA;
+
+                $display(
+                    "SLAVE WRITE : Address = %h Data = %h",
+                    slave_addr,
+                    HWDATA
+                );
+
+            end
+
+        end
+
+    end
+
+
+   
+
+    task single_write;
+
+        input [31:0] test_addr;
+        input [31:0] test_data;
+
+        begin
+
+            @(negedge HCLK);
+
+            start      = 1'b1;
+            write      = 1'b1;
+            addr       = test_addr;
+            write_data = test_data;
+
+            beat_length = 4'd1;
+            wrap_en     = 1'b0;
+
+            @(negedge HCLK);
+
+            start = 1'b0;
+
+            wait(done);
+
+            $display(
+                "SINGLE WRITE COMPLETE : ADDR=%h DATA=%h",
+                test_addr,
+                test_data
+            );
+
+        end
+
+    endtask
+
+
+    
+    task single_read;
+
+        input [31:0] test_addr;
+
+        begin
+
+            @(negedge HCLK);
+
+            start      = 1'b1;
+            write      = 1'b0;
+            addr       = test_addr;
+            write_data = 32'b0;
+
+            beat_length = 4'd1;
+            wrap_en     = 1'b0;
+
+            @(negedge HCLK);
+
+            start = 1'b0;
+
+            wait(done);
+
+            $display(
+                "SINGLE READ COMPLETE : ADDR=%h DATA=%h",
+                test_addr,
+                read_data
+            );
+
+        end
+
+    endtask
+
+
+    
+    task incr4_write;
+
+        input [31:0] test_addr;
+
+        begin
+
+            @(negedge HCLK);
+
+            start      = 1'b1;
+            write      = 1'b1;
+            addr       = test_addr;
+            write_data = 32'hAAAA0000;
+
+            beat_length = 4'd4;
+            wrap_en     = 1'b0;
+
+            @(negedge HCLK);
+
+            start = 1'b0;
+
+            wait(done);
+
+            $display(
+                "INCR4 WRITE COMPLETE : START ADDR=%h",
+                test_addr
+            );
+
+        end
+
+    endtask
+
+
+ 
+
+    task wrap4_write;
+
+        input [31:0] test_addr;
+
+        begin
+
+            @(negedge HCLK);
+
+            start      = 1'b1;
+            write      = 1'b1;
+            addr       = test_addr;
+            write_data = 32'hBBBB0000;
+
+            beat_length = 4'd4;
+            wrap_en     = 1'b1;
+
+            @(negedge HCLK);
+
+            start = 1'b0;
+
+            wait(done);
+
+            $display(
+                "WRAP4 WRITE COMPLETE : START ADDR=%h",
+                test_addr
+            );
+
+        end
+
+    endtask
+
+
+    
+
+    initial begin
+
+        // Initial values
+
+        start       = 1'b0;
+        write       = 1'b0;
+        addr        = 32'b0;
+        write_data  = 32'b0;
+
+        beat_length = 4'd1;
+        wrap_en     = 1'b0;
+
+        HRESETn = 1'b0;
+
+
+        // Reset
+        #20;
+
+        HRESETn = 1'b1;
+
+        #20;
+
+
+      
+
+        single_write(
+            32'h00000010,
+            32'h12345678
+        );
+
+
+      
+
+        single_read(
+            32'h00000010
+        );
+
+
+      
+
+        $display("");
+      
+
+        incr4_write(
+            32'h00000020
+        );
+
+
+        
+     
+        wrap4_write(
+            32'h0000002C
+        );
+
+
+        
+
+        #100;
+
+       
+        $finish;
+
+    end
+
+
+   
+    always @(posedge HCLK) begin
+
+        $display(
+            "TIME=%0t | HADDR=%h | HTRANS=%b | HWRITE=%b | HWDATA=%h | HREADY=%b | HRDATA=%h",
+            $time,
+            HADDR,
+            HTRANS,
+            HWRITE,
+            HWDATA,
+            HREADY,
+            HRDATA
+        );
+
+    end
+
+endmodule
