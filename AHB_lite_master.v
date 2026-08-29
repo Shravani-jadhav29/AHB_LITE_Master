@@ -61,9 +61,7 @@ module AHB_lite(
     output reg  [1:0]  HTRANS,
     output reg  [31:0] HWDATA,
 
-    // ----------------------------------------------------
-    // User status
-    // ----------------------------------------------------
+  
     output reg         busy,
     output reg         done,
     output reg         error,
@@ -127,7 +125,7 @@ module AHB_lite(
 
 
    
-    // Sequential logic
+
    
 
     always @(posedge HCLK or negedge HRESETn) begin
@@ -143,19 +141,19 @@ module AHB_lite(
             burst_reg     <= HBURST_SINGLE;
 
             beat_count    <= 2'd0;
-            wrap_base     <= 32'b0;
+            wrap_base <= 32'b0;
 
-            busy          <= 1'b0;
-            done          <= 1'b0;
-            error         <= 1'b0;
+            busy   <= 1'b0;
+            done   <= 1'b0;
+            error     <= 1'b0;
 
-            read_data     <= 32'b0;
+            read_data   <= 32'b0;
 
         end
 
         else begin
 
-            // Default one-cycle pulses
+            
             done  <= 1'b0;
             error <= 1'b0;
 
@@ -173,15 +171,14 @@ module AHB_lite(
 
                     if (start) begin
 
-                        // Capture transaction
-                        addr_reg       <= addr;
+                       
+                        addr_reg  <= addr;
                         write_data_reg <= write_data;
-                        write_reg      <= write;
+                        write_reg <= write;
 
                         beat_count <= 2'd0;
 
                       
-                        // Select burst
                        
 
                         if (beat_length == 4) begin
@@ -219,7 +216,7 @@ module AHB_lite(
 
 
                
-                // ADDRESS PHASE
+             
               
 
                 ST_ADDR:
@@ -238,7 +235,7 @@ module AHB_lite(
 
 
                 
-                // DATA PHASE
+                
             
 
                 ST_DATA:
@@ -250,7 +247,7 @@ module AHB_lite(
                     if (HREADY) begin
 
                         
-                        // ERROR response
+                       
                         
                         if (HRESP == HRESP_ERROR) begin
 
@@ -258,8 +255,7 @@ module AHB_lite(
 
                         end
 
-                        
-                        // READ DATA
+                
                      
 
                         else begin
@@ -272,7 +268,7 @@ module AHB_lite(
 
 
                             
-                            // SINGLE transfer complete
+                           
                          
 
                             if (burst_reg == HBURST_SINGLE) begin
@@ -298,7 +294,7 @@ module AHB_lite(
                                 beat_count <= beat_count + 1'b1;
 
 
-                                // INCR4
+                              
                                 if (burst_reg == HBURST_INCR4) begin
 
                                     addr_reg <= addr_reg + 32'd4;
@@ -306,7 +302,7 @@ module AHB_lite(
                                 end
 
 
-                                // WRAP4
+                               
                                 else if (burst_reg == HBURST_WRAP4) begin
 
                                     if (addr_reg ==
@@ -396,7 +392,7 @@ module AHB_lite(
                 HADDR  = addr_reg;
                 HWRITE = write_reg;
 
-                // 32-bit transfer
+             
                 HSIZE = 3'b010;
 
                 HBURST = burst_reg;
